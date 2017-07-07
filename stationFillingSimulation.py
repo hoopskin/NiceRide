@@ -128,4 +128,6 @@ def main():
 
 
 stationCapacityDict = {}
+refillRate = .5
+reductionRate = .3
 main()
