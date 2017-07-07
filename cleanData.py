@@ -10,6 +10,7 @@ stationLocationDataWriter = csv.writer(stationLocationDataFile)
 
 stationHeader = ["Season"]
 tripHeader = ["Season"]
+tripData = []
 
 for season in folderList:
 	print("Working on %s" % (season))
@@ -38,7 +39,11 @@ for season in folderList:
 		if row != ["","","","","","","0",""]:
 			oRow = [season]
 			oRow.extend(row)
-			tripDataWriter.writerow(oRow)
+			tripData.append("|".join(oRow))
+
+tripData.sort()
+for trip in tripData:
+	tripDataWriter.writerow(trip.split("|"))
 
 tripDataFile.close()
 stationLocationDataFile.close()
