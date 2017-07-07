@@ -35,11 +35,10 @@ def buildCapacityDict():
 		except(KeyError):
 			stationCapacityDict[row[terminalIdx].strip()] = val
 
-def runStationSimulation(capacityDict):
+def runStationSimulation(station, curRunCapacity):
 	fitness = 0
 	time.sleep(.5)
 	fitness = r.randint(-1000,0)
-	#If we're going station at a time, can we skip all the unnecessary rows?
 
 	return fitness
 
@@ -47,18 +46,22 @@ def main():
 	buildCapacityDict()
 
 	#Start out with filling each station with half it's capacity
-	curBestSolution = {k: v//2 for k, v in stationCapacityDict.items()}
-	curBestFitness = runStationSimulation(curBestSolution)
-
+	solution = {}
 
 	curStationIdx = 0
 	attemptsMade = 0
 	#Go through each station
 	while curStationIdx < len(stationCapacityDict.keys()):
 		station = list(stationCapacityDict.keys())[curStationIdx]
+
+		curBestCapacity = stationCapacityDict[station]//2
+		curBestFitness = runStationSimulation(station, curBestCapacity)
+		
+		lastMin = -1
+		lastMax = stationCapacityDict[station]+1
 		sRunMin = 0
 		sRunMax = stationCapacityDict[station]
-		curRunSolution = {k: v//2 for k, v in stationCapacityDict.items()}
+		
 		stillHaveAttempts = True
 		if debug:
 			print(station)
@@ -67,16 +70,15 @@ def main():
 			print(sRunMax)
 
 		while stillHaveAttempts:
+			mid = (sRunMax+sRunMin)//2
+			change = mid//2
+			incCapacity = mid+change
+			decCapacity = mid-change
 			#Run an increase in capacity at that station
-			curRunSolution[station] = (sRunMin+sRunMax)//2
-			curRunSolution[station] += (sRunMax-sRunMin)//2
-			incFitness = runStationSimulation(curRunSolution)
+			incFitness = runStationSimulation(station, incCapacity)
 
 			#Run a decrease in capacity at that station
-			curRunSolution[station] = (sRunMin+sRunMax)//2			
-			curRunSolution[station] -= (sRunMax-sRunMin)//2
-
-			decFitness = runStationSimulation(curRunSolution)
+			decFitness = runStationSimulation(station, decCapacity)
 
 
 			if debug:
@@ -84,8 +86,9 @@ def main():
 				print(station)
 				print("Min: "+str(sRunMin))
 				print("Max: "+str(sRunMax))
-				print(sRunMax == sRunMin)
-				print("curBestSolution[station]: "+str(curBestSolution[station]))
+				print("incCapacity: "+str(incCapacity))
+				print("decCapacity: "+str(decCapacity))
+				print("curBestCapacity: "+str(curBestCapacity))
 				print("--")
 				print("incFitness: "+str(incFitness))
 				print("decFitness: "+str(decFitness))
@@ -94,28 +97,24 @@ def main():
 
 			#If either were better than doing nothing, Update best solution & fitness
 			if incFitness > curBestFitness:
-				curRunSolution[station] = (sRunMin+sRunMax)//2
-				curRunSolution[station] += (sRunMax-sRunMin)//2
-
-				curBestSolution = {k: v for k, v in curRunSolution.items()}
+				curBestCapacity = incCapacity
 				curBestFitness = incFitness
 
 			if decFitness > curBestFitness:
-				curRunSolution[station] = (sRunMin+sRunMax)//2			
-				curRunSolution[station] -= (sRunMax-sRunMin)//2
-				
-				curBestSolution = {k: v for k, v in curRunSolution.items()}
+				curBestCapacity = decCapacity
 				curBestFitness = decFitness
 
 			#If increase was better than decrease
 			if incFitness > decFitness:
 				#Modify sRunMin
-				sRunMin = ((sRunMin+sRunMax)//2)+((sRunMax-sRunMin)//2)
+				#sRunMin = mid+change
+				sRunMin = max(sRunMin, mid)
 
 			#If decrease was better than increase
 			elif decFitness > incFitness:
 				#Modify sRunMax
-				sRunMax = ((sRunMin+sRunMax)//2)-((sRunMax-sRunMin)//2)
+				#sRunMax = mid-change
+				sRunMax = min(sRunMax, mid)
 
 			else:
 				print("Fitnesses equaled!")
@@ -124,7 +123,15 @@ def main():
 			if sRunMax == sRunMin:
 				stillHaveAttempts = False
 
+			if lastMin == sRunMin and lastMax == sRunMax:
+				stillHaveAttempts = False
+			else:
+				lastMin = sRunMin
+				lastMax = sRunMax
+
+		solution[station] = curBestCapacity
 		curStationIdx+=1
+
 
 
 stationCapacityDict = {}
