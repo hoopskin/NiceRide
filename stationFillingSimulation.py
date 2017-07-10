@@ -1,7 +1,7 @@
 import csv, datetime, time
 import random as r
 
-debug = False
+debug = True
 
 #############
 #Assumptions#
@@ -36,9 +36,41 @@ def buildCapacityDict():
 			stationCapacityDict[row[terminalIdx].strip()] = val
 
 def runStationSimulation(station, curRunCapacity):
+	print("Running simulation for %s @ %i bikes" % (station, curRunCapacity))
 	fitness = 0
-	time.sleep(.5)
-	fitness = r.randint(-1000,0)
+	maxCapacity = stationCapacityDict[station]
+
+	reader = csv.reader(open("allTripData.csv", "rt"))
+
+	header = next(reader)
+	dateIdx = header.index("Start date")
+	stIdx = header.index("Start terminal")
+	endIdx = header.index("End terminal")
+
+	currentFill = curRunCapacity
+	curDate = "1/1/1900"
+	i = 0
+	for row in reader:
+		i+=1
+		if i%100000 == 0:
+			print("%i/%i = %.2f%%" % (i, 2240000, (i/2240000)*100))
+		if row[dateIdx] != curDate:
+			currentFill = curRunCapacity
+			curDate = row[dateIdx]
+
+		if row[stIdx] == station:
+			currentFill-=1
+		elif row[endIdx] == station:
+			currentFill+=1
+
+		if currentFill < 0:
+			fitness-=1
+			currentFill = int(refillRate*maxCapacity)
+
+		if currentFill > maxCapacity:
+			fitness-=1
+			currentFill = int((1 - reductionRate)*maxCapacity)
+
 
 	return fitness
 
@@ -50,18 +82,20 @@ def main():
 
 	curStationIdx = 0
 	attemptsMade = 0
+	stations = list(stationCapacityDict.keys())
+	stations.sort()
 	#Go through each station
-	while curStationIdx < len(stationCapacityDict.keys()):
-		station = list(stationCapacityDict.keys())[curStationIdx]
+	while curStationIdx < len(stations):
+		station = list(stations)[curStationIdx]
 
 		curBestCapacity = stationCapacityDict[station]//2
 		curBestFitness = runStationSimulation(station, curBestCapacity)
-		
+
 		lastMin = -1
 		lastMax = stationCapacityDict[station]+1
 		sRunMin = 0
 		sRunMax = stationCapacityDict[station]
-		
+
 		stillHaveAttempts = True
 		if debug:
 			print(station)
@@ -69,11 +103,14 @@ def main():
 			print(sRunMin)
 			print(sRunMax)
 
-		while stillHaveAttempts:
+		while stillHaveAttempts and curBestFitness != 0:
 			mid = (sRunMax+sRunMin)//2
+			#TODO: Change this
+			#Example: Min-Mid-Max = 11-14-17
+			#Change was 7 when it should be 3 (Maybe: incChange = (max-mid)//2)
 			change = mid//2
-			incCapacity = mid+change
-			decCapacity = mid-change
+			incCapacity = min(lastMax, mid+change)
+			decCapacity = max(lastMin, mid-change)
 			#Run an increase in capacity at that station
 			incFitness = runStationSimulation(station, incCapacity)
 
@@ -86,6 +123,8 @@ def main():
 				print(station)
 				print("Min: "+str(sRunMin))
 				print("Max: "+str(sRunMax))
+				print("Mid: "+str(mid))
+				print("Change: "+str(change))
 				print("incCapacity: "+str(incCapacity))
 				print("decCapacity: "+str(decCapacity))
 				print("curBestCapacity: "+str(curBestCapacity))
@@ -117,7 +156,11 @@ def main():
 				sRunMax = min(sRunMax, mid)
 
 			else:
-				print("Fitnesses equaled!")
+				print("Fitnesses equaled! Flipping a coin.")
+				if r.random() > .5:
+					sRunMin = max(sRunMin, mid)
+				else:
+					sRunMax = min(sRunMax, mid)
 
 			#If we're out of attempts, go to next station
 			if sRunMax == sRunMin:
@@ -130,6 +173,8 @@ def main():
 				lastMax = sRunMax
 
 		solution[station] = curBestCapacity
+		print("Current Solution")
+		print(solution)
 		curStationIdx+=1
 
 
